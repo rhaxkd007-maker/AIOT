@@ -1,0 +1,102 @@
+'''
+from flask import Flask, request
+import RPi.GPIO as GPIO
+import atexit
+
+app = Flask(__name__)
+
+# --------------------------
+# LED 핀 설정
+# --------------------------
+SAFE_LED = 23          # 안전 상태 LED
+WARNING_LED = 24       # 경고 상태 LED
+DANGER_LED = 25        # 위험 상태 LED
+
+# --------------------------
+# 릴레이 핀 설정
+# --------------------------
+RELAY_PEAK = 17        # 피크 구간용 릴레이 (경고·위험 시 사용)
+RELAY_NONPEAK = 27     # 비피크 구간용 릴레이 (안전 시 사용)
+
+# --------------------------
+# GPIO 초기 설정
+# --------------------------
+GPIO.setmode(GPIO.BCM)
+
+# LED 핀 출력 모드
+GPIO.setup(SAFE_LED, GPIO.OUT)
+GPIO.setup(WARNING_LED, GPIO.OUT)
+GPIO.setup(DANGER_LED, GPIO.OUT)
+
+# 릴레이 핀 출력 모드
+GPIO.setup(RELAY_PEAK, GPIO.OUT)
+GPIO.setup(RELAY_NONPEAK, GPIO.OUT)
+
+# 프로그램 시작 시 모든 LED 및 릴레이 OFF
+GPIO.output(SAFE_LED, GPIO.LOW)
+GPIO.output(WARNING_LED, GPIO.LOW)
+GPIO.output(DANGER_LED, GPIO.LOW)
+GPIO.output(RELAY_PEAK, GPIO.LOW)
+GPIO.output(RELAY_NONPEAK, GPIO.LOW)
+
+# 프로그램 종료 시 GPIO 자동 초기화
+atexit.register(GPIO.cleanup)
+
+# --------------------------
+# 기본 루트 라우트
+# --------------------------
+@app.route("/")
+def index():
+    return "Flask LED + Relay Server is running"
+
+# --------------------------
+# LED & 릴레이 제어 라우트
+# --------------------------
+@app.route("/led", methods=["POST"])
+def control_led():
+    data = request.json
+    action = data.get("action")
+
+    # 먼저 모든 LED 및 릴레이 OFF
+    GPIO.output(SAFE_LED, GPIO.LOW)
+    GPIO.output(WARNING_LED, GPIO.LOW)
+    GPIO.output(DANGER_LED, GPIO.LOW)
+    GPIO.output(RELAY_PEAK, GPIO.LOW)
+    GPIO.output(RELAY_NONPEAK, GPIO.LOW)
+
+    # --------------------------
+    # 안전 모드
+    # --------------------------
+    if action == "safe_on":
+        GPIO.output(SAFE_LED, GPIO.HIGH)
+        GPIO.output(RELAY_NONPEAK, GPIO.HIGH)
+        return {"status": "safe", "message": "LED 23 ON + relay 27 ON"}
+
+    # --------------------------
+    # 경고 모드
+    # --------------------------
+    elif action == "warning_on":
+        GPIO.output(WARNING_LED, GPIO.HIGH)
+        GPIO.output(RELAY_PEAK, GPIO.HIGH)
+        return {"status": "warning", "message": "LED 24 ON + relay 17 ON"}
+
+    # --------------------------
+    # 위험 모드
+    # --------------------------
+    elif action == "danger_on":
+        GPIO.output(DANGER_LED, GPIO.HIGH)
+        GPIO.output(RELAY_PEAK, GPIO.HIGH)
+        return {"status": "danger", "message": "LED 25 ON + relay 17 ON"}
+
+    # --------------------------
+    # 잘못된 요청 처리
+    # --------------------------
+    else:
+        return {"error": "invalid action"}, 400
+
+# --------------------------
+# Flask 서버 실행
+# --------------------------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+'''

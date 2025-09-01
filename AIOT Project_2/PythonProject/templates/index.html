@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>에너지 대시보드</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.socket.io/4.3.2/socket.io.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <!-- 1. 추전지 잔여량 표시 -->
+    <div class="box">
+        <h2>1. ESS 전력 잔여량</h2>
+        <p>(전력측정장치와 연동)</p>
+        <p id="peak_risk">로딩 중...</p>
+    </div>
+
+    <!-- 2. 현재 전력원 표시 -->
+    <div class="box">
+        <h2>2. 현재 전력원</h2>
+        <p>(태양광 or 일반전력 여부)</p>
+        <p id="power_source">로딩 중...</p>
+    </div>
+
+    <!-- 3. 태양광 전환 이력 -->
+    <div class="box">
+        <h2>3. 태양광 전환 이력</h2>
+        <p>(몇 시에 전환되었는지 로그 표시)</p>
+        <ul id="switch_log">
+            <li>로딩 중...</li>
+        </ul>
+    </div>
+
+    <!-- 4. 날짜 선택 및 예측 결과 표시 -->
+    <div class="box">
+        <h2>4. 피크 예측 결과</h2>
+        <p>(날짜를 선택하면 해당 날짜의 시간별 예측 결과가 표시됨)</p>
+        <input type="date" id="datePicker">
+        <ul id="prediction_result">
+            <li>날짜를 선택하세요</li>
+        </ul>
+    </div>
+
+    <!-- 5. LED 전환 상태 -->
+    <div class="box">
+        <h2>5. 예측 기반 LED 상태</h2>
+        <p id="led_status" style="font-weight: bold; font-size: 18px; color: gray;">선택된 날짜 없음</p>
+    </div>
+
+    <script>
+        const socket = io();
+        socket.on('connect', () => console.log("서버에 연결됨"));
+        socket.on('realtime_data', (data) => {
+            document.getElementById("power_source").innerText = data.source === 'solar' ? "태양광" : "일반 전력";
+            const logElement = document.getElementById("switch_log");
+            const newLog = document.createElement("li");
+            newLog.innerText = `태양광으로 전환됨! 시간: ${data.time}`;
+            logElement.prepend(newLog);
+        });
+
+        function loadPeakRisk() {
+            fetch('/api/predicted_peak')
+                    .then(res => res.json())
+                    .then(data => {
+                        const peak = data.peak_risk_index.toFixed(2);
+                        const isPeak = data.is_predicted_peak ? '⚠️ 위험' : '정상';
+                        document.getElementById('peak_risk').innerText = `${peak} (${isPeak})`;
+                    }).catch(err => {
+                document.getElementById('peak_risk').innerText = '데이터 로딩 실패';
+                console.error(err);
+            });
+        }
+
+        function loadPredictionForDate(date) {
+            if (!date) return;
+
+            document.getElementById("datePicker").value = date;
+
+            Promise.all([
+                fetch(`/api/ml_predict?date=${date}`).then(async res => {
+                    if (!res.ok) throw new Error(await res.text());
+                    return res.json();
+                }),
+                fetch(`/api/kma_full_weather?date=${date}`).then(async res => {
+                    if (!res.ok) throw new Error(await res.text());
+                    return res.json();
+                })
+            ]).then(([mlData, weatherData]) => {
+                const list = document.getElementById("prediction_result");
+                list.innerHTML = "";
+
+                if (mlData.error) {
+                    list.innerHTML = `<li>❌ 서버 오류 (ML): ${mlData.error}</li>`;
+                    return;
+                }
+                if (weatherData.error) {
+                    const li = document.createElement("li");
+                    li.innerText = `❌ 서버 오류 (날씨): ${weatherData.error}`;
+                    list.appendChild(li);
+                }
+
+                const weatherMap = {};
+                (weatherData.weather || []).forEach(w => {
+                    const hour = w.time;
+                    weatherMap[hour] = w;
+                });
+
+                mlData.results.forEach(item => {
+                    const weather = weatherMap[item.time] || {};
+                    const li = document.createElement("li");
+
+                    const temp = weather.temperature ? `🌡 ${weather.temperature}℃` : '';
+                    const humid = weather.humidity ? `💧 ${weather.humidity}%` : '';
+                    const sun = weather.sunshine ? `☀️ ${weather.sunshine}h` : '';
+
+                    li.innerHTML = `${item.time} - 예측: ${item.predicted}₩, 실제: ${item.actual}₩ ${temp} ${humid} ${sun}` +
+                            (item.note ? ` <span class="spike-label">${item.note}</span>` : '');
+                    list.appendChild(li);
+                });
+
+                const r2 = document.createElement("li");
+                r2.innerText = `📈 설명력 (R²): ${mlData.r2}`;
+                list.appendChild(r2);
+
+                const ledText = document.getElementById("led_status");
+                if (mlData.led_signal === "danger_on") {
+                    ledText.innerText = "🔴 위험 (DANGER)";
+                    ledText.style.color = "red";
+                } else if (mlData.led_signal === "warning_on") {
+                    ledText.innerText = "🟠 경고 (WARNING)";
+                    ledText.style.color = "orange";
+                } else if (mlData.led_signal === "safe_on") {
+                    ledText.innerText = "🟢 안전 (SAFE)";
+                    ledText.style.color = "green";
+                } else {
+                    ledText.innerText = "LED 상태 알 수 없음";
+                    ledText.style.color = "gray";
+                }
+            }).catch(err => {
+                const list = document.getElementById("prediction_result");
+                list.innerHTML = `<li>❌ 예측 fetch 실패: ${err.message}</li>`;
+                console.error(err);
+            });
+        }
+
+        // ✅ 날짜 선택 시 수동 갱신
+        document.getElementById("datePicker").addEventListener("change", () => {
+            const date = document.getElementById("datePicker").value;
+            loadPredictionForDate(date);
+        });
+
+        // ✅ 페이지 로딩 시 자동 날짜 예측 시작
+        window.addEventListener('DOMContentLoaded', () => {
+            loadPeakRisk();
+
+            let currentDate = new Date("2024-01-21");
+
+            function nextDay() {
+                const dateStr = currentDate.toISOString().split("T")[0];
+                loadPredictionForDate(dateStr);
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+
+            nextDay(); // 최초 실행
+            setInterval(nextDay, 5000); // 5초마다 갱신
+        });
+    </script>
+
+
+</body>
+</html>

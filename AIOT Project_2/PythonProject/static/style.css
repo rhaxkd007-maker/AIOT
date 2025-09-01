@@ -1,0 +1,144 @@
+/* style.css - 에너지 대시보드 스타일 */
+
+body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 2rem;
+    background-color: #f7f9fb;
+    color: #2c3e50;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    color: #1a252f;
+}
+
+.box {
+    background: #ffffff;
+    border-left: 6px solid #00aaff;
+    border-radius: 10px;
+    padding: 1.8rem 2rem;
+    margin-bottom: 1.8rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.box:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    margin-top: 0;
+    color: #0077b6;
+    font-size: 1.4rem;
+}
+
+input[type='date'] {
+    padding: 0.4rem 1rem;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    margin-top: 0.4rem;
+    background-color: #fff;
+    color: #333;
+}
+
+ul {
+    padding-left: 1.2rem;
+}
+
+li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+}
+
+li::marker {
+    color: #00aaff;
+}
+
+#prediction_result li {
+    font-weight: 500;
+    color: #34495e;
+}
+
+#prediction_result li:last-child {
+    margin-top: 1rem;
+    font-weight: bold;
+    color: #2e8b57;
+}
+
+#solar_estimate,
+#power_source,
+#peak_risk,
+#prediction_result li,
+#switch_log li {
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: #2c3e50;
+}
+
+/* 로딩 중 */
+.loading-text {
+    color: #888;
+    font-style: italic;
+}
+
+/* 실패 시 */
+.error-message {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* 전환 로그 */
+#switch_log li {
+    color: #007bff;
+}
+
+/* 데이터 강조 */
+.data-value {
+    color: #1d3557;
+    font-weight: 600;
+}
+
+/* ✅ LED 상태 박스용 스타일 */
+#led_status {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 0.8rem;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* LED 상태별 색상 강조 */
+.led-safe {
+    background-color: #e6f8ec;
+    color: #2e8b57;
+}
+
+.led-warning {
+    background-color: #fff4e5;
+    color: #e67e22;
+}
+
+.led-danger {
+    background-color: #fdecea;
+    color: #e74c3c;
+}
+/* 예측 + 날씨 함께 나오는 부분 강조 */
+.weather-info {
+    color: #555;
+    font-size: 0.95rem;
+    margin-left: 0.5rem;
+}
+
+/* 급등 마크 강조 */
+.spike-label {
+    font-weight: bold;
+    color: #d63031;
+    margin-left: 0.5rem;
+}
+
